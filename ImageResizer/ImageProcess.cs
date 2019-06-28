@@ -4,6 +4,8 @@ using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Threading.Tasks;
+using System;
+using System.Threading;
 
 namespace ImageResizer
 {
@@ -44,31 +46,32 @@ namespace ImageResizer
 
             for (int i = 0; i < 10; i++)
             {
-                tasks[i] = Task.Run(() => MyFunction());
+                tasks[i] = Task.Run(() => Dequeue(allFiles, destPath, scale));
             }
 
-            Task.WaitAll(tasks);
+            await Task.WhenAll(tasks);
+        }
 
-            async Task MyFunction()
+        private async Task Dequeue(ConcurrentQueue<string> allFiles, string destPath, double scale)
+        {
+            while (allFiles.TryDequeue(out string filePath))
             {
-                while (allFiles.TryDequeue(out string filePath))
-                {
-                    Image imgPhoto = Image.FromFile(filePath);
-                    string imgName = Path.GetFileNameWithoutExtension(filePath);
+                Console.WriteLine($"{filePath} : {Thread.CurrentThread.ManagedThreadId}");
+                Image imgPhoto = Image.FromFile(filePath);
+                string imgName = Path.GetFileNameWithoutExtension(filePath);
 
-                    int sourceWidth = imgPhoto.Width;
-                    int sourceHeight = imgPhoto.Height;
+                int sourceWidth = imgPhoto.Width;
+                int sourceHeight = imgPhoto.Height;
 
-                    int destionatonWidth = (int)(sourceWidth * scale);
-                    int destionatonHeight = (int)(sourceHeight * scale);
+                int destionatonWidth = (int)(sourceWidth * scale);
+                int destionatonHeight = (int)(sourceHeight * scale);
 
-                    Bitmap processedImage = ProcessBitmap((Bitmap)imgPhoto,
-                        sourceWidth, sourceHeight,
-                        destionatonWidth, destionatonHeight);
+                Bitmap processedImage = await ProcessBitmap((Bitmap)imgPhoto,
+                    sourceWidth, sourceHeight,
+                    destionatonWidth, destionatonHeight);
 
-                    string destFile = Path.Combine(destPath, imgName + ".jpg");
-                    processedImage.Save(destFile, ImageFormat.Jpeg);
-                }
+                string destFile = Path.Combine(destPath, imgName + ".jpg");
+                await ImageSave(processedImage, destFile, ImageFormat.Jpeg);
             }
         }
 
@@ -104,18 +107,35 @@ namespace ImageResizer
         /// <param name="newWidth">新圖片的寬度</param>
         /// <param name="newHeight">新圖片的高度</param>
         /// <returns></returns>
-        private Bitmap ProcessBitmap(Bitmap img, int srcWidth, int srcHeight, int newWidth, int newHeight)
+        private async Task<Bitmap> ProcessBitmap(Bitmap img, int srcWidth, int srcHeight, int newWidth, int newHeight)
         {
-            Bitmap resizedbitmap = new Bitmap(newWidth, newHeight);
-            Graphics g = Graphics.FromImage(resizedbitmap);
-            g.InterpolationMode = InterpolationMode.High;
-            g.SmoothingMode = SmoothingMode.HighQuality;
-            g.Clear(Color.Transparent);
-            g.DrawImage(img,
-                new Rectangle(0, 0, newWidth, newHeight),
-                new Rectangle(0, 0, srcWidth, srcHeight),
-                GraphicsUnit.Pixel);
-            return resizedbitmap;
+            return await Task.Run(() =>
+            {
+                Bitmap resizedbitmap = new Bitmap(newWidth, newHeight);
+                Graphics g = Graphics.FromImage(resizedbitmap);
+                g.InterpolationMode = InterpolationMode.High;
+                g.SmoothingMode = SmoothingMode.HighQuality;
+                g.Clear(Color.Transparent);
+                g.DrawImage(img,
+                    new Rectangle(0, 0, newWidth, newHeight),
+                    new Rectangle(0, 0, srcWidth, srcHeight),
+                    GraphicsUnit.Pixel);
+                return resizedbitmap;
+            });
+        }
+
+        /// <summary>
+        /// 儲存圖片
+        /// </summary>
+        /// <param name="bitmap">二進位圖檔</param>
+        /// <param name="destFile">目標位置</param>
+        /// <param name="imageFormat">圖片類型</param>
+        /// <returns></returns>
+        private async Task ImageSave(Bitmap bitmap, string destFile, ImageFormat imageFormat)
+        {
+            await Task.Run(() => {
+                bitmap.Save(destFile, imageFormat);
+            });
         }
     }
 }
