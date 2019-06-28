@@ -1,15 +1,13 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace ImageResizer
 {
-    class Program
+    internal class Program
     {
-        static void Main(string[] args)
+        private static async Task Main(string[] args)
         {
             string sourcePath = Path.Combine(Environment.CurrentDirectory, "images");
             string destinationPath = Path.Combine(Environment.CurrentDirectory, "output"); ;
@@ -24,6 +22,13 @@ namespace ImageResizer
             sw.Stop();
 
             Console.WriteLine($"花費時間: {sw.ElapsedMilliseconds} ms");
+            // 調整前 3085ms
+            // 調整後 2325ms
+            // ~75%
+
+            // 調整前 5860ms
+            // 調整後 4100ms
+            // ~70%
         }
     }
 }
